@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ficareer Job Parser (Hybrid - BazaarLink)</title>
+<style>
+:root {
+  --bg:#f6f5f2; --surface:#fff; --border:#e2e0d9; --border-strong:#cfccc2;
+  --text-primary:#1f1e1b; --text-secondary:#6b6a63; --text-muted:#a3a199;
+  --accent:#c96442; --accent-dark:#a4502f; --accent-bg:#f6e9e3;
+  --radius:10px; --radius-lg:14px;
+  --font-sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--text-primary); font-family:var(--font-sans); line-height:1.6; }
+.app { max-width:760px; margin:0 auto; padding:40px 20px 80px; }
+.app-header h1 { font-size:24px; font-weight:600; margin:0 0 8px; }
+.app-header p { color:var(--text-secondary); font-size:15px; margin:0 0 20px; }
+.badge-row { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
+.badge { display:inline-block; background:var(--accent-bg); color:var(--accent-dark); font-size:12px; font-weight:600; padding:3px 10px; border-radius:999px; }
+section.input-box { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px 24px; margin-bottom:20px; }
+label { display:block; font-size:13px; font-weight:600; color:var(--text-secondary); margin-bottom:8px; }
+.hint { font-size:12px; color:var(--text-muted); margin:10px 0 0; }
+.hint a { color:var(--accent-dark); }
+textarea { width:100%; padding:12px 14px; border:1px solid var(--border-strong); border-radius:var(--radius); font-family:var(--font-sans); font-size:14px; resize:vertical; background:#fbfaf8; color:var(--text-primary); }
+textarea:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-bg); }
+.action-row { display:flex; align-items:center; gap:14px; margin-top:14px; }
+.btn-primary { border:none; border-radius:var(--radius); font-size:14px; font-weight:600; padding:10px 18px; cursor:pointer; font-family:var(--font-sans); background:var(--accent); color:#fff; }
+.btn-primary:hover { opacity:.9; }
+.btn-primary:disabled { opacity:.5; cursor:not-allowed; }
+.status-text { font-size:13px; color:var(--text-secondary); }
+.results { display:flex; flex-direction:column; gap:16px; }
+.job-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px 24px; }
+.job-card-title { font-size:16px; font-weight:600; margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid var(--border); }
+.field-row { display:flex; align-items:flex-start; gap:12px; padding:9px 0; border-bottom:1px solid var(--border); }
+.field-row:last-child { border-bottom:none; }
+.field-label { min-width:160px; font-size:13px; color:var(--text-secondary); flex-shrink:0; display:flex; align-items:center; gap:6px; }
+.src-tag { font-size:10px; font-weight:600; padding:1px 6px; border-radius:4px; text-transform:uppercase; }
+.src-regex { background:#e8ede6; color:#4a6b45; }
+.src-ai { background:var(--accent-bg); color:var(--accent-dark); }
+.field-value { flex:1; font-size:14px; word-break:break-word; }
+.field-value.empty { color:var(--text-muted); font-style:italic; }
+.copy-btn { flex-shrink:0; border:1px solid var(--border-strong); background:var(--surface); border-radius:6px; font-size:12px; padding:4px 10px; cursor:pointer; color:var(--text-secondary); font-family:var(--font-sans); }
+.copy-btn:hover { background:#f1efea; }
+.copy-btn.copied { background:var(--accent-bg); color:var(--accent-dark); border-color:var(--accent); }
+.usage-box { font-size:12px; color:var(--text-muted); margin-top:10px; }
+.content-block { padding:12px 0; border-bottom:1px solid var(--border); }
+.content-block-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+.content-block-title { font-size:13px; color:var(--text-secondary); display:flex; align-items:center; gap:6px; }
+.content-block ul { margin:0; padding-left:20px; font-size:14px; }
+.content-block ul li { margin-bottom:4px; }
+.content-block .empty-note { color:var(--text-muted); font-style:italic; font-size:14px; }
+.title-block { background:var(--accent-bg); border-radius:var(--radius); padding:12px 16px; margin-bottom:14px; }
+.title-block-label { font-size:12px; font-weight:600; color:var(--accent-dark); margin-bottom:4px; display:flex; justify-content:space-between; align-items:center; }
+.title-block-value { font-size:15px; font-weight:500; color:var(--text-primary); }
+.title-char-count { font-size:11px; font-weight:400; color:var(--text-muted); }
+.error-box { background:#fbeceb; border:1px solid #e7b3af; color:#a23b34; border-radius:var(--radius); padding:12px 16px; font-size:13px; margin-bottom:16px; }
+@media (max-width:560px) { .field-row { flex-direction:column; gap:4px; } .field-label { min-width:unset; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="app-header">
+    <h1>Ficareer job parser (hybrid)</h1>
+    <p>Regex menangani field berpola pasti (email, WA, link, tanggal, gaji) tanpa biaya. AI (BazaarLink <code>auto:free</code>) hanya dipanggil untuk memisahkan posisi, menebak kategori, dan membuat excerpt — pakai model gratis. API key BazaarLink disimpan aman di server (Vercel environment variable), tidak pernah dikirim ke browser.</p>
+    <div class="badge-row">
+      <span class="badge">Regex: gratis</span>
+      <span class="badge">AI: BazaarLink auto:free</span>
+      <span class="badge">Key: server-side only</span>
+    </div>
+  </header>
+
+  <section class="input-box">
+    <label for="rawInput">Teks lowongan mentah</label>
+    <textarea id="rawInput" rows="10" placeholder="Paste teks loker di sini..."></textarea>
+    <div class="action-row">
+      <button id="parseBtn" class="btn-primary">Parse loker</button>
+      <span id="status" class="status-text"></span>
+    </div>
+    <div id="usageBox" class="usage-box"></div>
+  </section>
+
+  <div id="errorBox"></div>
+  <section id="results" class="results"></section>
+</div>
+
+<template id="jobCardTemplate">
+  <div class="job-card">
+    <div class="job-card-title"></div>
+    <div class="field-list"></div>
+  </div>
+</template>
+
+<script>
+const rawInput = document.getElementById("rawInput");
+const parseBtn = document.getElementById("parseBtn");
+const statusEl = document.getElementById("status");
+const usageBox = document.getElementById("usageBox");
+const resultsEl = document.getElementById("results");
+const errorBox = document.getElementById("errorBox");
+const cardTemplate = document.getElementById("jobCardTemplate");
+
+function buildFieldRow(label, value, source) {
+  const row = document.createElement("div");
+  row.className = "field-row";
+  const labelEl = document.createElement("div");
+  labelEl.className = "field-label";
+  const tag = document.createElement("span");
+  tag.className = "src-tag " + (source === "ai" ? "src-ai" : "src-regex");
+  tag.textContent = source === "ai" ? "AI" : "regex";
+  labelEl.textContent = label + " ";
+  labelEl.appendChild(tag);
+  const valueEl = document.createElement("div");
+  const isEmpty = !value || value.trim() === "";
+  valueEl.className = "field-value" + (isEmpty ? " empty" : "");
+  valueEl.textContent = isEmpty ? "Tidak terdeteksi" : value;
+  row.appendChild(labelEl);
+  row.appendChild(valueEl);
+  if (!isEmpty) {
+    const copyBtn = document.createElement("button");
+    copyBtn.className = "copy-btn";
+    copyBtn.textContent = "Copy";
+    copyBtn.addEventListener("click", () => {
+      navigator.clipboard.writeText(value).then(() => {
+        copyBtn.textContent = "Copied";
+        copyBtn.classList.add("copied");
+        setTimeout(() => { copyBtn.textContent = "Copy"; copyBtn.classList.remove("copied"); }, 1200);
+      });
+    });
+    row.appendChild(copyBtn);
+  }
+  return row;
+}
+
+function copyRichList(label, items) {
+  const html = `<p><strong>${label}</strong></p><ul>${items.map(i => `<li>${i}</li>`).join("")}</ul>`;
+  const plain = `${label}\n` + items.map(i => "- " + i).join("\n");
+  if (window.ClipboardItem) {
+    const item = new ClipboardItem({
+      "text/html": new Blob([html], { type: "text/html" }),
+      "text/plain": new Blob([plain], { type: "text/plain" })
+    });
+    return navigator.clipboard.write([item]);
+  }
+  return navigator.clipboard.writeText(`**${label}**\n` + items.map(i => "- " + i).join("\n"));
+}
+
+function buildListBlock(label, items) {
+  const block = document.createElement("div");
+  block.className = "content-block";
+  const header = document.createElement("div");
+  header.className = "content-block-header";
+  const titleEl = document.createElement("div");
+  titleEl.className = "content-block-title";
+  const tag = document.createElement("span");
+  tag.className = "src-tag src-ai";
+  tag.textContent = "AI";
+  titleEl.textContent = label + " ";
+  titleEl.appendChild(tag);
+  header.appendChild(titleEl);
+
+  const hasItems = Array.isArray(items) && items.length > 0;
+  if (hasItems) {
+    const copyBtn = document.createElement("button");
+    copyBtn.className = "copy-btn";
+    copyBtn.textContent = "Copy";
+    copyBtn.addEventListener("click", () => {
+      copyRichList(label.replace(" (untuk konten deskripsi)", ""), items).then(() => {
+        copyBtn.textContent = "Copied";
+        copyBtn.classList.add("copied");
+        setTimeout(() => { copyBtn.textContent = "Copy"; copyBtn.classList.remove("copied"); }, 1200);
+      });
+    });
+    header.appendChild(copyBtn);
+  }
+  block.appendChild(header);
+
+  if (hasItems) {
+    const ul = document.createElement("ul");
+    items.forEach(item => {
+      const li = document.createElement("li");
+      li.textContent = item;
+      ul.appendChild(li);
+    });
+    block.appendChild(ul);
+  } else {
+    const note = document.createElement("div");
+    note.className = "empty-note";
+    note.textContent = "Tidak disebutkan eksplisit di teks asli.";
+    block.appendChild(note);
+  }
+  return block;
+}
+
+function buildJobTitle(job) {
+  if (!job.posisi) return "";
+  let title = `Lowongan Kerja ${job.posisi}`;
+  if (job.perusahaan) title += ` di ${job.perusahaan}`;
+  if (job.lokasi) title += ` - ${job.lokasi}`;
+  return title;
+}
+
+function buildTitleBlock(title) {
+  const wrap = document.createElement("div");
+  wrap.className = "title-block";
+  const labelRow = document.createElement("div");
+  labelRow.className = "title-block-label";
+  const labelText = document.createElement("span");
+  labelText.textContent = "Judul postingan (SEO)";
+  const charCount = document.createElement("span");
+  charCount.className = "title-char-count";
+  charCount.textContent = `${title.length} karakter`;
+  labelRow.appendChild(labelText);
+  labelRow.appendChild(charCount);
+  const valueRow = document.createElement("div");
+  valueRow.style.display = "flex";
+  valueRow.style.justifyContent = "space-between";
+  valueRow.style.alignItems = "center";
+  valueRow.style.gap = "12px";
+  const valueEl = document.createElement("div");
+  valueEl.className = "title-block-value";
+  valueEl.textContent = title || "Tidak dapat disusun (posisi tidak terdeteksi)";
+  valueRow.appendChild(valueEl);
+  if (title) {
+    const copyBtn = document.createElement("button");
+    copyBtn.className = "copy-btn";
+    copyBtn.textContent = "Copy";
+    copyBtn.addEventListener("click", () => {
+      navigator.clipboard.writeText(title).then(() => {
+        copyBtn.textContent = "Copied";
+        copyBtn.classList.add("copied");
+        setTimeout(() => { copyBtn.textContent = "Copy"; copyBtn.classList.remove("copied"); }, 1200);
+      });
+    });
+    valueRow.appendChild(copyBtn);
+  }
+  wrap.appendChild(labelRow);
+  wrap.appendChild(valueRow);
+  return wrap;
+}
+
+function renderJobCard(job, index) {
+  const node = cardTemplate.content.cloneNode(true);
+  const titleEl = node.querySelector(".job-card-title");
+  const listEl = node.querySelector(".field-list");
+  const jobTitle = buildJobTitle(job);
+  titleEl.textContent = `${index + 1}. ${job.posisi || "Posisi tidak terdeteksi"}`;
+  listEl.appendChild(buildTitleBlock(jobTitle));
+  const fields = [
+    ["Posisi / jabatan", job.posisi, "ai"],
+    ["Perusahaan", job.perusahaan, "ai"],
+    ["Tipe kerja", job.tipe_kerja, "regex"],
+    ["Range gaji", job.gaji, "regex"],
+    ["Minimal pendidikan", job.pendidikan, "regex"],
+    ["Deadline lamaran", job.deadline, "regex"],
+    ["Kategori loker (saran)", job.kategori, "ai"],
+    ["Lokasi (saran)", job.lokasi, "ai"],
+    ["Link apply", job.link_apply, "regex"],
+    ["Email lamaran", job.email, "regex"],
+    ["WhatsApp", job.whatsapp, "regex"],
+    ["Excerpt", job.excerpt, "ai"]
+  ];
+  fields.forEach(([label, value, source]) => listEl.appendChild(buildFieldRow(label, value, source)));
+  listEl.appendChild(buildListBlock("Tanggung jawab (untuk konten deskripsi)", job.tanggung_jawab));
+  listEl.appendChild(buildListBlock("Persyaratan (untuk konten deskripsi)", job.persyaratan));
+  return node;
+}
+
+function showError(msg) {
+  errorBox.innerHTML = "";
+  const box = document.createElement("div");
+  box.className = "error-box";
+  box.textContent = msg;
+  errorBox.appendChild(box);
+}
+function clearError() { errorBox.innerHTML = ""; }
+
+parseBtn.addEventListener("click", async () => {
+  const rawText = rawInput.value.trim();
+  if (!rawText) { statusEl.textContent = "Paste teks lowongan dulu."; return; }
+
+  parseBtn.disabled = true;
+  statusEl.textContent = "Memproses (regex + AI)...";
+  resultsEl.innerHTML = "";
+  usageBox.textContent = "";
+  clearError();
+
+  try {
+    const resp = await fetch("/api/parse", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rawText })
+    });
+    const data = await resp.json();
+
+    if (!resp.ok) {
+      showError(data.error || `Request gagal (status ${resp.status}).`);
+      statusEl.textContent = "";
+      return;
+    }
+
+    const jobs = data.jobs || [];
+    statusEl.textContent = `${jobs.length} posisi terdeteksi.`;
+    jobs.forEach((job, i) => resultsEl.appendChild(renderJobCard(job, i)));
+
+    if (data.usage) {
+      const inTok = data.usage.prompt_tokens || 0;
+      const outTok = data.usage.completion_tokens || 0;
+      usageBox.textContent = `Token dipakai: ${inTok} input, ${outTok} output — model auto:free, biaya $0 (limit tier gratis: 10 req/menit, 150 req/hari)`;
+    }
+  } catch (err) {
+    console.error(err);
+    showError("Gagal terhubung ke server. Coba lagi.");
+  } finally {
+    parseBtn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

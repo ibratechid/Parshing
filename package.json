@@ -1,0 +1,9 @@
+{
+  "name": "ficareer-job-parser",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Hybrid regex + AI (BazaarLink auto:free) job posting parser for Ficareer",
+  "engines": {
+    "node": ">=18"
+  }
+}
